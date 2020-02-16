@@ -1,0 +1,26 @@
+syntax = "proto3";
+option java_multiple_files = true;
+package io.github.bfeng.simplemapred.resource;
+
+message InitClusterRequest {
+    int32 numberOfMappers = 1;
+    int32 numberOfReducers = 2;
+}
+
+message InitClusterResponse {
+    int32 clusterId = 1;
+}
+
+message DestroyClusterRequest {
+    int32 clusterId = 1;
+}
+
+message DestroyClusterResponse {
+    int32 status = 1;
+}
+
+service MasterService {
+    rpc initCluster (InitClusterRequest) returns (InitClusterResponse);
+
+    rpc destroyCluster (DestroyClusterRequest) returns (DestroyClusterResponse);
+}

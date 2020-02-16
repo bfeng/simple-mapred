@@ -1,0 +1,43 @@
+syntax = "proto3";
+option java_multiple_files = true;
+package io.github.bfeng.simplemapred.resource;
+
+message StartMapperRequest {
+    string inputFile = 1;
+}
+
+message StartMapperResponse {
+    int32 mapperId = 1;
+}
+
+message StopMapperRequest {
+    int32 mapperId = 1;
+}
+
+message StopMapperResponse {
+    int32 status = 1;
+}
+
+message StartReducerRequest {
+    string input = 1;
+}
+
+message StartReducerResponse {
+    int32 reducerId = 1;
+}
+
+message StopReducerRequest {
+    int32 reducerId = 1;
+}
+
+message StopReducerResponse {
+    int32 status = 1;
+}
+
+service WorkerService {
+    rpc startMapper (StartMapperRequest) returns (StartMapperResponse);
+    rpc stopMapper (StopMapperRequest) returns (StopMapperResponse);
+
+    rpc startReducer (StartReducerRequest) returns (StartReducerResponse);
+    rpc stopReducer (StopReducerRequest) returns (StopReducerResponse);
+}
