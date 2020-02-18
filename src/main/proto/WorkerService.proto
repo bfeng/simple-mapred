@@ -2,12 +2,20 @@ syntax = "proto3";
 option java_multiple_files = true;
 package io.github.bfeng.simplemapred.resource;
 
+message TaskConf {
+    int32 id = 1;
+    string host = 2;
+    int32 port = 3;
+}
+
 message StartMapperRequest {
-    string inputFile = 1;
+    int32 clusterId = 1;
+    repeated int32 mapperIds = 2;
 }
 
 message StartMapperResponse {
-    int32 mapperId = 1;
+    int32 clusterId = 1;
+    repeated TaskConf mappers = 2;
 }
 
 message StopMapperRequest {
@@ -19,11 +27,13 @@ message StopMapperResponse {
 }
 
 message StartReducerRequest {
-    string input = 1;
+    int32 clusterId = 1;
+    repeated int32 reducerIds = 2;
 }
 
 message StartReducerResponse {
-    int32 reducerId = 1;
+    int32 clusterId = 1;
+    repeated TaskConf reducers = 2;
 }
 
 message StopReducerRequest {
