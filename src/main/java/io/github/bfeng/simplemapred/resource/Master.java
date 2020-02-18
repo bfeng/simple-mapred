@@ -162,6 +162,13 @@ public class Master extends ServerBase {
                 startReducers(clusterId, workerConfList.get(i), reducerIds.get(i));
             }
 
+            for (TaskMeta meta : master.clusterMeta.get(clusterId)) {
+                if (meta.type == TaskMeta.TaskType.mapper)
+                    logger.info(String.format("Cluster[%d]: Mapper task[%d] is running: %s:%d", clusterId, meta.id, meta.host, meta.port));
+                else if (meta.type == TaskMeta.TaskType.reducer)
+                    logger.info(String.format("Cluster[%d]: Reducer task[%d] is running: %s:%d", clusterId, meta.id, meta.host, meta.port));
+            }
+
             return clusterId;
         }
 

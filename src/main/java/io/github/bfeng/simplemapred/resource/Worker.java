@@ -14,16 +14,19 @@ import java.util.logging.Logger;
 public class Worker extends ServerBase {
     private static final Logger logger = Logger.getLogger(Worker.class.getName());
     private final int workerId;
+    private final String host;
     private final int port;
-    private int taskPort = 30000;
+    private int taskPort;
 
     private Map<Integer, Map<TaskMeta.TaskType, List<TaskMeta>>> taskMeta;
 
     public Worker(String configuration, int workerId) throws IOException {
         super(configuration);
         this.workerId = workerId;
+        this.host = getWorkerConf().get(workerId).ip;
         this.port = getWorkerConf().get(workerId).port;
         this.taskMeta = new HashMap<>();
+        this.taskPort = port + workerId * 1000;
     }
 
     public List<TaskMeta> getMapperConf(int clusterId) {
@@ -45,7 +48,7 @@ public class Worker extends ServerBase {
             logger.info(String.format("Mapper[%d] started", taskId));
         else if (type == TaskMeta.TaskType.reducer)
             logger.info(String.format("Reducer[%d] started", taskId));
-        return new TaskMeta(type, taskId, ":", taskPort++);
+        return new TaskMeta(type, taskId, host, taskPort++);
     }
 
     public void startMappers(int clusterId, List<Integer> mapperIds) {
