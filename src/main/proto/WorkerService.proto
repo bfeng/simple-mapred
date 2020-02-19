@@ -19,11 +19,11 @@ message StartMapperResponse {
 }
 
 message StopMapperRequest {
-    int32 mapperId = 1;
+    int32 clusterId = 1;
 }
 
 message StopMapperResponse {
-    int32 status = 1;
+    repeated int32 status = 1;
 }
 
 message StartReducerRequest {
@@ -37,17 +37,17 @@ message StartReducerResponse {
 }
 
 message StopReducerRequest {
-    int32 reducerId = 1;
+    int32 clusterId = 1;
 }
 
 message StopReducerResponse {
-    int32 status = 1;
+    repeated int32 status = 1;
 }
 
 service WorkerService {
-    rpc startMapper (StartMapperRequest) returns (StartMapperResponse);
-    rpc stopMapper (StopMapperRequest) returns (StopMapperResponse);
+    rpc startMappers (StartMapperRequest) returns (StartMapperResponse);
+    rpc stopMappers (StopMapperRequest) returns (StopMapperResponse);
 
-    rpc startReducer (StartReducerRequest) returns (StartReducerResponse);
-    rpc stopReducer (StopReducerRequest) returns (StopReducerResponse);
+    rpc startReducers (StartReducerRequest) returns (StartReducerResponse);
+    rpc stopReducers (StopReducerRequest) returns (StopReducerResponse);
 }

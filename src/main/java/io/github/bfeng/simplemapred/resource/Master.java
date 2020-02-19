@@ -112,11 +112,24 @@ public class Master extends ServerBase {
             WorkerServiceGrpc.WorkerServiceBlockingStub stub
                     = WorkerServiceGrpc.newBlockingStub(channel);
             StartMapperResponse startMapperResponse =
-                    stub.startMapper(buildStartMapperRequest(clusterId, mapperIds));
+                    stub.startMappers(buildStartMapperRequest(clusterId, mapperIds));
             List<TaskMeta> metas = startMapperResponse.getMappersList().stream().map((TaskConf conf) ->
                     new TaskMeta(TaskMeta.TaskType.mapper, conf.getId(), conf.getHost(), conf.getPort())
             ).collect(Collectors.toList());
             master.appendTaskMetas(clusterId, metas);
+            channel.shutdown();
+        }
+
+        private void stopMappers(int clusterId, MachineConf workerConf) {
+            ManagedChannel channel = ManagedChannelBuilder.forAddress(workerConf.ip, workerConf.port)
+                    .usePlaintext()
+                    .build();
+            WorkerServiceGrpc.WorkerServiceBlockingStub stub
+                    = WorkerServiceGrpc.newBlockingStub(channel);
+
+            StopMapperRequest request = StopMapperRequest.newBuilder().setClusterId(clusterId).build();
+            StopMapperResponse response = stub.stopMappers(request);
+
             channel.shutdown();
         }
 
@@ -127,7 +140,7 @@ public class Master extends ServerBase {
             WorkerServiceGrpc.WorkerServiceBlockingStub stub
                     = WorkerServiceGrpc.newBlockingStub(channel);
             StartReducerResponse startReducerResponse =
-                    stub.startReducer(buildStartReducerRequest(clusterId, reducerIds));
+                    stub.startReducers(buildStartReducerRequest(clusterId, reducerIds));
             List<TaskMeta> metas = startReducerResponse.getReducersList().stream().map((TaskConf conf) ->
                     new TaskMeta(TaskMeta.TaskType.reducer, conf.getId(), conf.getHost(), conf.getPort())
             ).collect(Collectors.toList());
@@ -135,7 +148,11 @@ public class Master extends ServerBase {
             channel.shutdown();
         }
 
-        private int startAll(int numberOfMappers, int numberOfReducers) {
+        private void stopReducers(int clusterId, MachineConf workerConf) {
+
+        }
+
+        private int startCluster(int numberOfMappers, int numberOfReducers) {
             int clusterId = master.newClusterId();
             List<MachineConf> workerConfList = master.getWorkerConf();
 
@@ -172,9 +189,16 @@ public class Master extends ServerBase {
             return clusterId;
         }
 
+        private void stopCluster(int clusterId) {
+            for (MachineConf workerConf : master.getWorkerConf()) {
+                stopMappers(clusterId, workerConf);
+                stopReducers(clusterId, workerConf);
+            }
+        }
+
         @Override
         public void initCluster(InitClusterRequest request, StreamObserver<InitClusterResponse> responseObserver) {
-            int clusterId = startAll(request.getNumberOfMappers(), request.getNumberOfReducers());
+            int clusterId = startCluster(request.getNumberOfMappers(), request.getNumberOfReducers());
             InitClusterResponse response = InitClusterResponse.newBuilder().setClusterId(clusterId).build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
@@ -182,6 +206,8 @@ public class Master extends ServerBase {
 
         @Override
         public void destroyCluster(DestroyClusterRequest request, StreamObserver<DestroyClusterResponse> responseObserver) {
+            int clusterId = request.getClusterId();
+            stopCluster(clusterId);
             DestroyClusterResponse response = DestroyClusterResponse.newBuilder().setStatus(0).build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();

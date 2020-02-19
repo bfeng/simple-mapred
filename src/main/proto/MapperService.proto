@@ -10,6 +10,15 @@ message RunMapperResponse {
     int32 status = 1;
 }
 
+message StopLocalMapperRequest {
+    int32 mapperId = 1;
+}
+
+message StopLocalMapperResponse {
+    int32 status = 1;
+}
+
 service MapperService {
     rpc runMapper (RunMapperRequest) returns (RunMapperResponse);
+    rpc stopMapper (StopLocalMapperRequest) returns (StopLocalMapperResponse);
 }
