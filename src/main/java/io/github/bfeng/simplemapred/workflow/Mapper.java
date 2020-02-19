@@ -1,5 +1,9 @@
 package io.github.bfeng.simplemapred.workflow;
 
+import com.google.protobuf.Any;
+import com.google.protobuf.InvalidProtocolBufferException;
+import io.github.bfeng.simplemapred.workflow.types.KeyValueEntry;
+import io.github.bfeng.simplemapred.workflow.types.TextMsg;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 
@@ -32,6 +36,19 @@ public class Mapper extends TaskBase {
             }
             System.err.println("*** Mapper shut down");
         }));
+    }
+
+    public void runMapperFn() {
+        Any key = Any.pack(TextMsg.newBuilder().setContent("hello").build());
+//        Any value = Any.pack()
+        KeyValueEntry keyValueEntry = KeyValueEntry.newBuilder().setKey(key).build();
+        if (key.is(TextMsg.class)) {
+            try {
+                TextMsg msg = key.unpack(TextMsg.class);
+            } catch (InvalidProtocolBufferException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     public static void main(String[] args) {

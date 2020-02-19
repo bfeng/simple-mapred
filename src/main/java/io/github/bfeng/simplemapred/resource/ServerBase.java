@@ -26,10 +26,10 @@ abstract class ServerBase {
             String[] conf = line.split(":");
             switch (conf[0]) {
                 case "master":
-                    masterConf = new MachineConf(conf[1], conf[2], MachineType.master);
+                    masterConf = new MachineConf(conf[1], conf[2], conf[3], MachineType.master);
                     break;
                 case "worker":
-                    workerConf.add(new MachineConf(conf[1], conf[2], MachineType.worker));
+                    workerConf.add(new MachineConf(conf[1], conf[2], conf[3], MachineType.worker));
                     break;
                 default:
                     System.err.println("Unknown conf: " + line);
@@ -70,11 +70,13 @@ abstract class ServerBase {
     static class MachineConf {
         final String ip;
         final int port;
+        final String home;
         final MachineType type;
 
-        public MachineConf(String ip, String port, MachineType type) {
+        public MachineConf(String ip, String port, String home, MachineType type) {
             this.ip = ip;
             this.port = Integer.parseInt(port);
+            this.home = home;
             this.type = type;
         }
     }
