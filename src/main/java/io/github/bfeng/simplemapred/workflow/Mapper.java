@@ -13,7 +13,7 @@ public class Mapper extends TaskBase {
 
     private MapperEmitter<Message, Message> mapperEmitter = new MapperEmitter<>();
 
-    protected Mapper(int id, String host, int port) throws IOException {
+    protected Mapper(int id, String host, int port) {
         super(new TaskMeta(TaskMeta.TaskType.mapper, id, host, port));
     }
 

@@ -1,9 +1,6 @@
 package io.github.bfeng.simplemapred.resource;
 
-import io.github.bfeng.simplemapred.workflow.MapperServiceGrpc;
-import io.github.bfeng.simplemapred.workflow.RunMapperRequest;
-import io.github.bfeng.simplemapred.workflow.RunMapperResponse;
-import io.github.bfeng.simplemapred.workflow.TaskMeta;
+import io.github.bfeng.simplemapred.workflow.*;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.ServerBuilder;
@@ -147,8 +144,7 @@ public class Master extends ServerBase {
             ManagedChannel channel = ManagedChannelBuilder.forAddress(workerConf.ip, workerConf.port)
                     .usePlaintext()
                     .build();
-            WorkerServiceGrpc.WorkerServiceBlockingStub stub
-                    = WorkerServiceGrpc.newBlockingStub(channel);
+            WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
 
             StopMapperRequest request = StopMapperRequest.newBuilder().setClusterId(clusterId).build();
             StopMapperResponse response = stub.stopMappers(request);
@@ -172,13 +168,20 @@ public class Master extends ServerBase {
         }
 
         private void stopReducers(int clusterId, MachineConf workerConf) {
+            ManagedChannel channel = ManagedChannelBuilder.forAddress(workerConf.ip, workerConf.port)
+                    .usePlaintext()
+                    .build();
+            WorkerServiceGrpc.WorkerServiceBlockingStub stub = WorkerServiceGrpc.newBlockingStub(channel);
 
+            StopReducerRequest request = StopReducerRequest.newBuilder().setClusterId(clusterId).build();
+            StopReducerResponse response = stub.stopReducers(request);
+            response.getStatusList().forEach(status -> logger.info(String.format("Reducer finished:%d", status)));
+            channel.shutdown();
         }
 
         private int startCluster(int numberOfMappers, int numberOfReducers) {
             int clusterId = master.newClusterId();
             List<MachineConf> workerConfList = master.getWorkerConf();
-
             int totalWorkers = workerConfList.size();
             List<List<Integer>> mapperIds = master.roundRobin(numberOfMappers, totalWorkers);
             List<List<Integer>> reducerIds = master.roundRobin(numberOfReducers, totalWorkers);
@@ -211,24 +214,46 @@ public class Master extends ServerBase {
         }
 
         private void stopCluster(int clusterId) {
-            for (MachineConf workerConf : master.getWorkerConf()) {
-                stopMappers(clusterId, workerConf);
-                stopReducers(clusterId, workerConf);
+            List<MachineConf> workerConfList = master.getWorkerConf();
+            int totalWorkers = workerConfList.size();
+            ExecutorService THREAD_POOL = Executors.newFixedThreadPool(4);
+            CompletionService<Integer> service = new ExecutorCompletionService<>(THREAD_POOL);
+            for (int i = 0; i < totalWorkers; i++) {
+                int finalI = i;
+                service.submit(() -> {
+                    stopMappers(clusterId, workerConfList.get(finalI));
+                    return 0;
+                });
+                service.submit(() -> {
+                    stopReducers(clusterId, workerConfList.get(finalI));
+                    return 0;
+                });
             }
+            awaitTerminationAfterShutdown(THREAD_POOL);
         }
 
-        private int runMapper(String inputFile, String className, TaskMeta mapTaskMeta) {
-            ManagedChannel channel = ManagedChannelBuilder.forAddress(mapTaskMeta.host, mapTaskMeta.port)
+        private int runTask(String filePath, String className, TaskMeta taskMeta) {
+            ManagedChannel channel = ManagedChannelBuilder.forAddress(taskMeta.host, taskMeta.port)
                     .usePlaintext()
                     .build();
-            MapperServiceGrpc.MapperServiceBlockingStub stub =
-                    MapperServiceGrpc.newBlockingStub(channel);
-            RunMapperRequest request = RunMapperRequest.newBuilder()
-                    .setInputFile(inputFile)
-                    .setMapClass(className)
-                    .build();
-            RunMapperResponse response = stub.runMapper(request);
-            int status = response.getStatus();
+            int status = 0;
+            if (taskMeta.type == TaskMeta.TaskType.mapper) {
+                MapperServiceGrpc.MapperServiceBlockingStub stub = MapperServiceGrpc.newBlockingStub(channel);
+                RunMapperRequest request = RunMapperRequest.newBuilder()
+                        .setInputFile(filePath)
+                        .setMapClass(className)
+                        .build();
+                RunMapperResponse response = stub.runMapper(request);
+                status = response.getStatus();
+            } else if (taskMeta.type == TaskMeta.TaskType.reducer) {
+                ReducerServiceGrpc.ReducerServiceBlockingStub stub = ReducerServiceGrpc.newBlockingStub(channel);
+                RunReducerRequest request = RunReducerRequest.newBuilder()
+                        .setOutputFile(filePath)
+                        .setReduceClass(className)
+                        .build();
+                RunReducerResponse response = stub.runReducer(request);
+                status = response.getStatus();
+            }
             channel.shutdown();
             return status;
         }
@@ -250,9 +275,29 @@ public class Master extends ServerBase {
                     int finalJ = j;
                     service.submit(() -> {
                         String inputFile = filesList.get(assignments.get(finalI).get(finalJ));
-                        return runMapper(inputFile, className, mapperTaskMetas.get(finalI));
+                        return runTask(inputFile, className, mapperTaskMetas.get(finalI));
                     });
                 }
+            }
+            awaitTerminationAfterShutdown(THREAD_POOL);
+        }
+
+        private void runReducers(int clusterId, List<String> outputList, String className) {
+            if (outputList == null || outputList.size() == 0) return;
+            List<TaskMeta> reduceTaskMetas = master.getReducerMetas(clusterId);
+            if (outputList.size() != reduceTaskMetas.size()) {
+                logger.info("Output files should match reducers");
+                return;
+            }
+            ExecutorService THREAD_POOL = Executors.newFixedThreadPool(4);
+            CompletionService<Integer> service = new ExecutorCompletionService<>(THREAD_POOL);
+            for (int i = 0; i < reduceTaskMetas.size(); i++) {
+                int finalI = i;
+                service.submit(() -> {
+                    String outputFile = outputList.get(finalI);
+                    runTask(outputFile, className, reduceTaskMetas.get(finalI));
+                    return 0;
+                });
             }
             awaitTerminationAfterShutdown(THREAD_POOL);
         }
@@ -269,9 +314,10 @@ public class Master extends ServerBase {
         public void runMapReduce(RunMapReduceRequest request, StreamObserver<RunMapReduceResponse> responseObserver) {
             int clusterId = request.getClusterId();
             List<String> filesList = request.getInputFilesList();
+            List<String> outputList = request.getOutputFilesList();
             String className = request.getMapReduceClass();
             runMappers(clusterId, filesList, className);
-            // runReducers();
+            runReducers(clusterId, outputList, className);
             RunMapReduceResponse response = RunMapReduceResponse.newBuilder().setStatus(0).build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();

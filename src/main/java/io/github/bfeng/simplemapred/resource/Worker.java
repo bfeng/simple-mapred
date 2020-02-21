@@ -42,7 +42,7 @@ public class Worker extends ServerBase {
         list.add(meta);
     }
 
-    private TaskMeta startTask(TaskMeta.TaskType type, int taskId) {
+    private synchronized TaskMeta startTask(TaskMeta.TaskType type, int taskId) {
         TaskMeta meta = new TaskMeta(type, taskId, host, taskPort++);
         try {
             if (type == TaskMeta.TaskType.mapper) {
@@ -50,6 +50,8 @@ public class Worker extends ServerBase {
                         Arrays.asList(String.valueOf(meta.id), meta.host, String.valueOf(meta.port)));
                 logger.info(String.format("Mapper[%d] started", taskId));
             } else if (type == TaskMeta.TaskType.reducer) {
+                TaskBase.exec(Reducer.class, Collections.singletonList("-Xmx1g"),
+                        Arrays.asList(String.valueOf(meta.id), meta.host, String.valueOf(meta.port)));
                 logger.info(String.format("Reducer[%d] started", taskId));
             }
         } catch (IOException | InterruptedException e) {
@@ -63,14 +65,19 @@ public class Worker extends ServerBase {
         ManagedChannel channel = ManagedChannelBuilder.forAddress(meta.host, meta.port)
                 .usePlaintext()
                 .build();
-        MapperServiceGrpc.MapperServiceBlockingStub stub =
-                MapperServiceGrpc.newBlockingStub(channel);
         int status = 0;
         if (meta.type == TaskMeta.TaskType.mapper) {
+            MapperServiceGrpc.MapperServiceBlockingStub stub = MapperServiceGrpc.newBlockingStub(channel);
             StopLocalMapperRequest request = StopLocalMapperRequest.newBuilder().setMapperId(meta.id).build();
             StopLocalMapperResponse response = stub.stopMapper(request);
             status = response.getStatus();
             logger.info(String.format("Mapper[%d] stopped", meta.id));
+        } else if (meta.type == TaskMeta.TaskType.reducer) {
+            ReducerServiceGrpc.ReducerServiceBlockingStub stub = ReducerServiceGrpc.newBlockingStub(channel);
+            StopLocalReducerRequest request = StopLocalReducerRequest.newBuilder().setReducerId(meta.id).build();
+            StopLocalReducerResponse response = stub.stopReducer(request);
+            status = response.getStatus();
+            logger.info(String.format("Reducer[%d] stopped", meta.id));
         }
         channel.shutdown();
         return status;
@@ -109,6 +116,14 @@ public class Worker extends ServerBase {
         for (int id : reducerIds) {
             TaskMeta meta = startTask(TaskMeta.TaskType.reducer, id);
             addTaskMeta(clusterId, meta);
+        }
+    }
+
+    public void stopReducers(int clusterId) {
+        logger.info("Stop all reducers...");
+        for (TaskMeta meta : taskMeta.get(clusterId).get(TaskMeta.TaskType.reducer)) {
+            logger.info("Stop reducer " + meta.id);
+            stopLocalTask(meta);
         }
     }
 
@@ -196,6 +211,15 @@ public class Worker extends ServerBase {
                     .setClusterId(clusterId)
                     .addAllReducers(configurations)
                     .build();
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+        }
+
+        @Override
+        public void stopReducers(StopReducerRequest request, StreamObserver<StopReducerResponse> responseObserver) {
+            int clusterId = request.getClusterId();
+            worker.stopReducers(clusterId);
+            StopReducerResponse response = StopReducerResponse.newBuilder().build();
             responseObserver.onNext(response);
             responseObserver.onCompleted();
         }

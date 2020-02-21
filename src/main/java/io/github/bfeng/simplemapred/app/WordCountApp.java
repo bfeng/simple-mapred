@@ -58,7 +58,7 @@ public class WordCountApp extends SimpleMapReduce {
         return InitClusterRequest
                 .newBuilder()
                 .setNumberOfMappers(2)
-                .setNumberOfReducers(1)
+                .setNumberOfReducers(2)
                 .build();
     }
 

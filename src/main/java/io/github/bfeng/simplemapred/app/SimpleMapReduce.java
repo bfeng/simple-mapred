@@ -20,8 +20,8 @@ public abstract class SimpleMapReduce {
                 = MasterServiceGrpc.newBlockingStub(channel);
         InitClusterResponse response = stub.initCluster(initClusterRequest);
         clusterId = response.getClusterId();
-        logger.info(String.format("Cluster:%d started", clusterId));
         channel.shutdown();
+        logger.info(String.format("Cluster:%d started", clusterId));
     }
 
     public void destroyCluster(String masterIP, int masterPort) {
@@ -35,8 +35,8 @@ public abstract class SimpleMapReduce {
                 = MasterServiceGrpc.newBlockingStub(channel);
         DestroyClusterResponse response = stub.destroyCluster(destroyClusterRequest);
         int status = response.getStatus();
-        logger.info(String.format("Cluster:%d shutdown: %d", clusterId, status));
         channel.shutdown();
+        logger.info(String.format("Cluster:%d shutdown: %d", clusterId, status));
     }
 
     public void runMapReduce(String masterIP, int masterPort) {
@@ -49,8 +49,8 @@ public abstract class SimpleMapReduce {
                 = MasterServiceGrpc.newBlockingStub(channel);
         RunMapReduceResponse response = stub.runMapReduce(request);
         int status = response.getStatus();
-        logger.info(String.format("Cluster:%d MapReduce job done: %d", clusterId, status));
         channel.shutdown();
+        logger.info(String.format("Cluster:%d MapReduce job done: %d", clusterId, status));
     }
 
     protected abstract InitClusterRequest buildInitRequest();
