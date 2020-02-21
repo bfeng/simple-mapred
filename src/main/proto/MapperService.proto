@@ -4,6 +4,7 @@ package io.github.bfeng.simplemapred.workflow;
 
 message RunMapperRequest {
     string inputFile = 1;
+    string mapClass = 2;
 }
 
 message RunMapperResponse {

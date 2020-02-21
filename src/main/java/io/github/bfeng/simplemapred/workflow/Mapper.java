@@ -1,9 +1,6 @@
 package io.github.bfeng.simplemapred.workflow;
 
-import com.google.protobuf.Any;
-import com.google.protobuf.InvalidProtocolBufferException;
-import io.github.bfeng.simplemapred.workflow.types.KeyValueEntry;
-import io.github.bfeng.simplemapred.workflow.types.TextMsg;
+import com.google.protobuf.Message;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 
@@ -13,6 +10,8 @@ import java.util.logging.Logger;
 
 public class Mapper extends TaskBase {
     private static final Logger logger = Logger.getLogger(Mapper.class.getName());
+
+    private MapperEmitter<Message, Message> mapperEmitter = new MapperEmitter<>();
 
     protected Mapper(int id, String host, int port) throws IOException {
         super(new TaskMeta(TaskMeta.TaskType.mapper, id, host, port));
@@ -38,17 +37,10 @@ public class Mapper extends TaskBase {
         }));
     }
 
-    public void runMapperFn() {
-        Any key = Any.pack(TextMsg.newBuilder().setContent("hello").build());
-//        Any value = Any.pack()
-        KeyValueEntry keyValueEntry = KeyValueEntry.newBuilder().setKey(key).build();
-        if (key.is(TextMsg.class)) {
-            try {
-                TextMsg msg = key.unpack(TextMsg.class);
-            } catch (InvalidProtocolBufferException e) {
-                e.printStackTrace();
-            }
-        }
+    public int runMapperFn(String inputFile, String mapClass) {
+        logger.info(mapClass + " runs input: " + inputFile);
+        ReflectionUtils.runMapFn(logger, mapClass, inputFile, mapperEmitter);
+        return 0;
     }
 
     public static void main(String[] args) {
@@ -65,11 +57,28 @@ public class Mapper extends TaskBase {
         }
     }
 
-    static class MapperService extends MapperServiceGrpc.MapperServiceImplBase {
+    private static class MapperService extends MapperServiceGrpc.MapperServiceImplBase {
         private final Mapper mapper;
 
         public MapperService(Mapper mapper) {
             this.mapper = mapper;
+        }
+
+        @Override
+        public void runMapper(RunMapperRequest request, StreamObserver<RunMapperResponse> responseObserver) {
+            int status = 0;
+            try {
+                String inputFile = request.getInputFile();
+                String className = request.getMapClass();
+                status = mapper.runMapperFn(inputFile, className);
+            } catch (Exception e) {
+                logger.info(e.getMessage());
+                status = -1;
+            } finally {
+                RunMapperResponse response = RunMapperResponse.newBuilder().setStatus(status).build();
+                responseObserver.onNext(response);
+                responseObserver.onCompleted();
+            }
         }
 
         @Override

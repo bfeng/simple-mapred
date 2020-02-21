@@ -35,11 +35,25 @@ public abstract class SimpleMapReduce {
                 = MasterServiceGrpc.newBlockingStub(channel);
         DestroyClusterResponse response = stub.destroyCluster(destroyClusterRequest);
         int status = response.getStatus();
-        logger.info("Cluster shutdown: " + status);
+        logger.info(String.format("Cluster:%d shutdown: %d", clusterId, status));
         channel.shutdown();
     }
 
-    public abstract void runMapReduce(String masterIP, int masterPort);
+    public void runMapReduce(String masterIP, int masterPort) {
+        logger.info(String.format("Cluster:%d Run MapReduce job", clusterId));
+        RunMapReduceRequest request = buildRunMapReduceRequest();
+        ManagedChannel channel = ManagedChannelBuilder.forAddress(masterIP, masterPort)
+                .usePlaintext()
+                .build();
+        MasterServiceGrpc.MasterServiceBlockingStub stub
+                = MasterServiceGrpc.newBlockingStub(channel);
+        RunMapReduceResponse response = stub.runMapReduce(request);
+        int status = response.getStatus();
+        logger.info(String.format("Cluster:%d MapReduce job done: %d", clusterId, status));
+        channel.shutdown();
+    }
 
     protected abstract InitClusterRequest buildInitRequest();
+
+    protected abstract RunMapReduceRequest buildRunMapReduceRequest();
 }

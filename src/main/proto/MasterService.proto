@@ -19,8 +19,21 @@ message DestroyClusterResponse {
     int32 status = 1;
 }
 
+message RunMapReduceRequest {
+    int32 clusterId = 1;
+    string mapReduceClass = 2;
+    repeated string inputFiles = 3;
+    repeated string outputFiles = 4;
+}
+
+message RunMapReduceResponse {
+    int32 status = 1;
+}
+
 service MasterService {
     rpc initCluster (InitClusterRequest) returns (InitClusterResponse);
+
+    rpc runMapReduce (RunMapReduceRequest) returns (RunMapReduceResponse);
 
     rpc destroyCluster (DestroyClusterRequest) returns (DestroyClusterResponse);
 }

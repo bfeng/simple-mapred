@@ -1,6 +1,7 @@
 package io.github.bfeng.simplemapred.app;
 
 import io.github.bfeng.simplemapred.resource.InitClusterRequest;
+import io.github.bfeng.simplemapred.resource.RunMapReduceRequest;
 import io.github.bfeng.simplemapred.workflow.GenericMapReduce;
 import io.github.bfeng.simplemapred.workflow.MapperEmitter;
 import io.github.bfeng.simplemapred.workflow.ReducerEmitter;
@@ -10,11 +11,13 @@ import io.github.bfeng.simplemapred.workflow.types.TextMsg;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.StringTokenizer;
 
 public class WordCountApp extends SimpleMapReduce {
 
-    static class MapReduce implements GenericMapReduce<TextMsg, IntMsg, TextMsg, IntMsg> {
+    public static class MapReduce implements GenericMapReduce<TextMsg, IntMsg, TextMsg, IntMsg> {
 
         @Override
         public void map(String inputFile, MapperEmitter<TextMsg, IntMsg> emitter) {
@@ -49,11 +52,6 @@ public class WordCountApp extends SimpleMapReduce {
     }
 
     @Override
-    public void runMapReduce(String masterIP, int masterPort) {
-        System.out.println(MapReduce.class);
-    }
-
-    @Override
     protected InitClusterRequest buildInitRequest() {
         // The number of mappers must match the number of input files
         // This framework doesn't support input splits.
@@ -61,6 +59,18 @@ public class WordCountApp extends SimpleMapReduce {
                 .newBuilder()
                 .setNumberOfMappers(2)
                 .setNumberOfReducers(1)
+                .build();
+    }
+
+    @Override
+    protected RunMapReduceRequest buildRunMapReduceRequest() {
+        List<String> inputFiles = Arrays.asList("data/words-1.txt", "data/words-2.txt");
+        List<String> outputFiles = Arrays.asList("out-1.txt", "out-2.txt");
+        return RunMapReduceRequest.newBuilder()
+                .setClusterId(clusterId)
+                .addAllInputFiles(inputFiles)
+                .addAllOutputFiles(outputFiles)
+                .setMapReduceClass(MapReduce.class.getName())
                 .build();
     }
 
