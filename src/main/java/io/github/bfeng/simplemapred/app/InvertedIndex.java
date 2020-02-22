@@ -1,7 +1,5 @@
 package io.github.bfeng.simplemapred.app;
 
-import io.github.bfeng.simplemapred.resource.InitClusterRequest;
-import io.github.bfeng.simplemapred.resource.RunMapReduceRequest;
 import io.github.bfeng.simplemapred.workflow.GenericMapReduce;
 import io.github.bfeng.simplemapred.workflow.MapperEmitter;
 import io.github.bfeng.simplemapred.workflow.ReducerEmitter;
@@ -10,7 +8,10 @@ import io.github.bfeng.simplemapred.workflow.types.TextMsg;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.StringTokenizer;
 
 public class InvertedIndex extends SimpleMapReduce {
 
@@ -54,33 +55,13 @@ public class InvertedIndex extends SimpleMapReduce {
         }
     }
 
-    @Override
-    protected InitClusterRequest buildInitRequest() {
-        return InitClusterRequest
-                .newBuilder()
-                .setNumberOfMappers(2)
-                .setNumberOfReducers(2)
-                .build();
-    }
-
-    @Override
-    protected RunMapReduceRequest buildRunMapReduceRequest() {
-        List<String> inputFiles = Arrays.asList("input/part-1.txt", "input/part-2.txt");
-        List<String> outputFiles = Arrays.asList("output/inverted-1.txt", "output/inverted-2.txt");
-        return RunMapReduceRequest.newBuilder()
-                .setClusterId(clusterId)
-                .addAllInputFiles(inputFiles)
-                .addAllOutputFiles(outputFiles)
-                .setMapReduceClass(MapReduce.class.getName())
-                .build();
-    }
-
     public static void main(String[] args) {
         InvertedIndex app = new InvertedIndex();
-        String masterIP = "localhost";
-        int port = 12345;
+        app.parseArgs(args);
+        String masterIP = app.masterHost;
+        int port = app.masterPort;
         app.initCluster(masterIP, port);
-        app.runMapReduce(masterIP, port);
+        app.runMapReduce(masterIP, port, MapReduce.class.getName());
         app.destroyCluster(masterIP, port);
     }
 }

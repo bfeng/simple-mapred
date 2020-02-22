@@ -1,7 +1,5 @@
 package io.github.bfeng.simplemapred.app;
 
-import io.github.bfeng.simplemapred.resource.InitClusterRequest;
-import io.github.bfeng.simplemapred.resource.RunMapReduceRequest;
 import io.github.bfeng.simplemapred.workflow.GenericMapReduce;
 import io.github.bfeng.simplemapred.workflow.MapperEmitter;
 import io.github.bfeng.simplemapred.workflow.ReducerEmitter;
@@ -11,7 +9,6 @@ import io.github.bfeng.simplemapred.workflow.types.TextMsg;
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.StringTokenizer;
@@ -61,35 +58,13 @@ public class WordCountApp extends SimpleMapReduce {
         }
     }
 
-    @Override
-    protected InitClusterRequest buildInitRequest() {
-        // The number of mappers must match the number of input files
-        // This framework doesn't support input splits.
-        return InitClusterRequest
-                .newBuilder()
-                .setNumberOfMappers(2)
-                .setNumberOfReducers(2)
-                .build();
-    }
-
-    @Override
-    protected RunMapReduceRequest buildRunMapReduceRequest() {
-        List<String> inputFiles = Arrays.asList("input/part-1.txt", "input/part-2.txt");
-        List<String> outputFiles = Arrays.asList("output/wc-1.txt", "output/wc-2.txt");
-        return RunMapReduceRequest.newBuilder()
-                .setClusterId(clusterId)
-                .addAllInputFiles(inputFiles)
-                .addAllOutputFiles(outputFiles)
-                .setMapReduceClass(MapReduce.class.getName())
-                .build();
-    }
-
     public static void main(String[] args) {
         WordCountApp app = new WordCountApp();
-        String masterIP = "localhost";
-        int port = 12345;
+        app.parseArgs(args);
+        String masterIP = app.masterHost;
+        int port = app.masterPort;
         app.initCluster(masterIP, port);
-        app.runMapReduce(masterIP, port);
+        app.runMapReduce(masterIP, port, MapReduce.class.getName());
         app.destroyCluster(masterIP, port);
     }
 }
