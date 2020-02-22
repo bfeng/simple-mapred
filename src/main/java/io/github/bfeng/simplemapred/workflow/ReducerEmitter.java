@@ -27,7 +27,7 @@ public class ReducerEmitter<ReducerOutKey extends Message, ReducerOutValue exten
         this.outputFile = outputFile;
     }
 
-    private void collect(ReducerOutKey outKey, ReducerOutValue outValue) {
+    public void collect(ReducerOutKey outKey, ReducerOutValue outValue) {
         List<ReducerOutValue> list = data.computeIfAbsent(outKey, k -> new ArrayList<>());
         list.add(outValue);
     }
@@ -70,11 +70,6 @@ public class ReducerEmitter<ReducerOutKey extends Message, ReducerOutValue exten
                 e.printStackTrace();
             }
         }
-    }
-
-    public void write(ReducerOutKey outKey, ReducerOutValue outValue) {
-        System.out.println(String.format("Reducer out: key={%s},value={%s}", outKey, outValue));
-        collect(outKey, outValue);
     }
 
     public void put(ReducerOutKey outKey, List<ReducerOutValue> outValues) {

@@ -28,7 +28,7 @@ public class InvertedIndex extends SimpleMapReduce {
                     while (st.hasMoreTokens()) {
                         String key = st.nextToken();
                         TextMsg outKey = TextMsg.newBuilder().setContent(key).build();
-                        emitter.write(outKey, outValue);
+                        emitter.collect(outKey, outValue);
                     }
                 }
                 reader.close();
@@ -47,10 +47,10 @@ public class InvertedIndex extends SimpleMapReduce {
                 if (emitter.contains(word)) {
                     List<TextMsg> values = emitter.getValues(word);
                     if (!values.contains(file)) {
-                        emitter.write(word, file);
+                        emitter.collect(word, file);
                     }
                 } else
-                    emitter.write(word, file);
+                    emitter.collect(word, file);
             }
         }
     }

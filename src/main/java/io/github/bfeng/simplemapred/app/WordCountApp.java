@@ -29,7 +29,7 @@ public class WordCountApp extends SimpleMapReduce {
                         int value = 1;
                         TextMsg outKey = TextMsg.newBuilder().setContent(key).build();
                         IntMsg outValue = IntMsg.newBuilder().setContent(value).build();
-                        emitter.write(outKey, outValue);
+                        emitter.collect(outKey, outValue);
                     }
                 }
                 reader.close();
@@ -53,7 +53,7 @@ public class WordCountApp extends SimpleMapReduce {
                 }
             } else {
                 IntMsg out = IntMsg.newBuilder().setContent(sum).build();
-                emitter.write(textMsg, out);
+                emitter.collect(textMsg, out);
             }
         }
     }
