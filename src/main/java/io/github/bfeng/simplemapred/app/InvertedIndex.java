@@ -5,33 +5,28 @@ import io.github.bfeng.simplemapred.resource.RunMapReduceRequest;
 import io.github.bfeng.simplemapred.workflow.GenericMapReduce;
 import io.github.bfeng.simplemapred.workflow.MapperEmitter;
 import io.github.bfeng.simplemapred.workflow.ReducerEmitter;
-import io.github.bfeng.simplemapred.workflow.types.IntMsg;
 import io.github.bfeng.simplemapred.workflow.types.TextMsg;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.StringTokenizer;
+import java.util.*;
 
-public class WordCountApp extends SimpleMapReduce {
+public class InvertedIndex extends SimpleMapReduce {
 
-    public static class MapReduce implements GenericMapReduce<TextMsg, IntMsg, TextMsg, IntMsg> {
+    public static class MapReduce implements GenericMapReduce<TextMsg, TextMsg, TextMsg, TextMsg> {
 
         @Override
-        public void map(String inputFile, MapperEmitter<TextMsg, IntMsg> emitter) {
+        public void map(String inputFile, MapperEmitter<TextMsg, TextMsg> emitter) {
             try {
                 BufferedReader reader = new BufferedReader(new FileReader(inputFile));
+                TextMsg outValue = TextMsg.newBuilder().setContent(inputFile).build();
                 String line = null;
                 while ((line = reader.readLine()) != null) {
                     StringTokenizer st = new StringTokenizer(line);
                     while (st.hasMoreTokens()) {
                         String key = st.nextToken();
-                        int value = 1;
                         TextMsg outKey = TextMsg.newBuilder().setContent(key).build();
-                        IntMsg outValue = IntMsg.newBuilder().setContent(value).build();
                         emitter.write(outKey, outValue);
                     }
                 }
@@ -42,29 +37,25 @@ public class WordCountApp extends SimpleMapReduce {
         }
 
         @Override
-        public void reduce(TextMsg textMsg, Iterable<IntMsg> intMessages, ReducerEmitter<TextMsg, IntMsg> emitter) {
-            int sum = 0;
-            for (IntMsg intMessage : intMessages) {
-                sum += intMessage.getContent();
+        public void reduce(TextMsg word, Iterable<TextMsg> listOfFiles, ReducerEmitter<TextMsg, TextMsg> emitter) {
+            Set<TextMsg> names = new HashSet<>();
+            for (TextMsg file : listOfFiles) {
+                names.add(file);
             }
-            if (emitter.contains(textMsg)) {
-                List<IntMsg> values = emitter.getValues(textMsg);
-                if (values.size() > 0) {
-                    sum += values.get(0).getContent();
-                    IntMsg out = IntMsg.newBuilder().setContent(sum).build();
-                    emitter.put(textMsg, Collections.singletonList(out));
-                }
-            } else {
-                IntMsg out = IntMsg.newBuilder().setContent(sum).build();
-                emitter.write(textMsg, out);
+            for (TextMsg file : names) {
+                if (emitter.contains(word)) {
+                    List<TextMsg> values = emitter.getValues(word);
+                    if (!values.contains(file)) {
+                        emitter.write(word, file);
+                    }
+                } else
+                    emitter.write(word, file);
             }
         }
     }
 
     @Override
     protected InitClusterRequest buildInitRequest() {
-        // The number of mappers must match the number of input files
-        // This framework doesn't support input splits.
         return InitClusterRequest
                 .newBuilder()
                 .setNumberOfMappers(2)
@@ -75,7 +66,7 @@ public class WordCountApp extends SimpleMapReduce {
     @Override
     protected RunMapReduceRequest buildRunMapReduceRequest() {
         List<String> inputFiles = Arrays.asList("input/part-1.txt", "input/part-2.txt");
-        List<String> outputFiles = Arrays.asList("output/wc-1.txt", "output/wc-2.txt");
+        List<String> outputFiles = Arrays.asList("output/inverted-1.txt", "output/inverted-2.txt");
         return RunMapReduceRequest.newBuilder()
                 .setClusterId(clusterId)
                 .addAllInputFiles(inputFiles)
@@ -85,7 +76,7 @@ public class WordCountApp extends SimpleMapReduce {
     }
 
     public static void main(String[] args) {
-        WordCountApp app = new WordCountApp();
+        InvertedIndex app = new InvertedIndex();
         String masterIP = "localhost";
         int port = 12345;
         app.initCluster(masterIP, port);

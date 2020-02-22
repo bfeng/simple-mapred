@@ -108,7 +108,6 @@ public class Mapper extends TaskBase {
             logger.info(String.format("Mapper[%d] is sending data to Reducer[%d]", mapper.meta.id, reduceId));
             int counter = 0;
             for (Message key : mapper.mapperEmitter.getKeys()) {
-                logger.info(key + "hashcode:" + key.hashCode());
                 if ((Math.abs(key.hashCode()) % totalReducer) == reduceId) {
                     CombinedKeyValuePairs response = CombinedKeyValuePairs.newBuilder()
                             .setKey(Any.pack(key))
