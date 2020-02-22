@@ -2,9 +2,13 @@ syntax = "proto3";
 option java_multiple_files = true;
 package io.github.bfeng.simplemapred.workflow;
 
+import "TaskConf.proto";
+
 message RunReducerRequest {
     string outputFile = 1;
     string reduceClass = 2;
+    int32 totalReducers = 3;
+    repeated TaskConf mappers = 4;
 }
 
 message RunReducerResponse {

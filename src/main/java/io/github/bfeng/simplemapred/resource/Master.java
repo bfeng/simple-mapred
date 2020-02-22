@@ -37,7 +37,7 @@ public class Master extends ServerBase {
         return id;
     }
 
-    public void appendTaskMetas(int clusterId, List<TaskMeta> metas) {
+    public synchronized void appendTaskMetas(int clusterId, List<TaskMeta> metas) {
         clusterMeta.get(clusterId).addAll(new ArrayList<>(metas));
     }
 
@@ -232,7 +232,13 @@ public class Master extends ServerBase {
             awaitTerminationAfterShutdown(THREAD_POOL);
         }
 
-        private int runTask(String filePath, String className, TaskMeta taskMeta) {
+        private List<TaskConf> convert(List<TaskMeta> metas) {
+            return metas.stream().map((TaskMeta meta) ->
+                    TaskConf.newBuilder().setId(meta.id).setHost(meta.host).setPort(meta.port).build()
+            ).collect(Collectors.toList());
+        }
+
+        private int runTask(int clusterId, String filePath, String className, TaskMeta taskMeta) {
             ManagedChannel channel = ManagedChannelBuilder.forAddress(taskMeta.host, taskMeta.port)
                     .usePlaintext()
                     .build();
@@ -247,9 +253,13 @@ public class Master extends ServerBase {
                 status = response.getStatus();
             } else if (taskMeta.type == TaskMeta.TaskType.reducer) {
                 ReducerServiceGrpc.ReducerServiceBlockingStub stub = ReducerServiceGrpc.newBlockingStub(channel);
+                int totalReducers = master.getReducerMetas(clusterId).size();
+                List<TaskMeta> mapperMetas = master.getMapperMetas(clusterId);
                 RunReducerRequest request = RunReducerRequest.newBuilder()
                         .setOutputFile(filePath)
                         .setReduceClass(className)
+                        .setTotalReducers(totalReducers)
+                        .addAllMappers(convert(mapperMetas))
                         .build();
                 RunReducerResponse response = stub.runReducer(request);
                 status = response.getStatus();
@@ -275,7 +285,7 @@ public class Master extends ServerBase {
                     int finalJ = j;
                     service.submit(() -> {
                         String inputFile = filesList.get(assignments.get(finalI).get(finalJ));
-                        return runTask(inputFile, className, mapperTaskMetas.get(finalI));
+                        return runTask(clusterId, inputFile, className, mapperTaskMetas.get(finalI));
                     });
                 }
             }
@@ -295,7 +305,8 @@ public class Master extends ServerBase {
                 int finalI = i;
                 service.submit(() -> {
                     String outputFile = outputList.get(finalI);
-                    runTask(outputFile, className, reduceTaskMetas.get(finalI));
+                    logger.info("Output:  " + outputFile);
+                    runTask(clusterId, outputFile, className, reduceTaskMetas.get(finalI));
                     return 0;
                 });
             }

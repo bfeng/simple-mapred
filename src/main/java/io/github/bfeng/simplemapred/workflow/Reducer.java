@@ -1,10 +1,17 @@
 package io.github.bfeng.simplemapred.workflow;
 
+import com.google.protobuf.Any;
+import com.google.protobuf.Message;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Iterator;
+import java.util.List;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 public class Reducer extends TaskBase {
@@ -34,8 +41,35 @@ public class Reducer extends TaskBase {
         }));
     }
 
-    public int runReducerFn(String outputFile, String reduceClass) {
-        logger.info(reduceClass + " runs output: " + outputFile);
+    public int runReducerFn(String outputFile, String reduceClass, int totalReducers, List<TaskConf> mapperMetas) {
+        logger.info(reduceClass + " runs output: " + outputFile + " -> about to talk to " + mapperMetas.size() + " mappers");
+        ReducerEmitter<Message, Message> emitter = new ReducerEmitter<>(outputFile);
+        emitter.open();
+        for (TaskConf conf : mapperMetas) {
+            logger.info(String.format("Reducer[%d] talks to Mapper[%d:%s:%d]", meta.id, conf.getId(), conf.getHost(), conf.getPort()));
+            ManagedChannel channel = ManagedChannelBuilder.forAddress(conf.getHost(), conf.getPort())
+                    .usePlaintext()
+                    .build();
+            MapperServiceGrpc.MapperServiceBlockingStub stub = MapperServiceGrpc.newBlockingStub(channel);
+            ReadKeyValueRequest request = ReadKeyValueRequest.newBuilder()
+                    .setReduceId(meta.id)
+                    .setTotalReducers(totalReducers)
+                    .build();
+            Iterator<CombinedKeyValuePairs> iterator;
+            try {
+                iterator = stub.readCombinedKeyValues(request);
+                while (iterator.hasNext()) {
+                    CombinedKeyValuePairs keyValuePairs = iterator.next();
+                    Any key = keyValuePairs.getKey();
+                    List<Any> values = keyValuePairs.getValuesList();
+                    ReflectionUtils.runReduceFn(reduceClass, key, values, emitter);
+                }
+            } catch (Exception e) {
+                logger.log(Level.WARNING, e.getMessage(), e.getCause());
+            }
+            channel.shutdown();
+        }
+        emitter.close();
         return 0;
     }
 
@@ -66,7 +100,9 @@ public class Reducer extends TaskBase {
             try {
                 String outputFile = request.getOutputFile();
                 String className = request.getReduceClass();
-                status = reducer.runReducerFn(outputFile, className);
+                int totalReducers = request.getTotalReducers();
+                List<TaskConf> mapperMetas = request.getMappersList();
+                status = reducer.runReducerFn(outputFile, className, totalReducers, mapperMetas);
             } catch (Exception e) {
                 logger.info(e.getMessage());
                 status = -1;

@@ -42,15 +42,18 @@ abstract class ServerBase {
 
     protected void stop() throws InterruptedException {
         if (server != null) {
-//            server.shutdown().awaitTermination(30, TimeUnit.SECONDS);
-            server.shutdownNow().awaitTermination();
+            try {
+                server.shutdown().awaitTermination(30, TimeUnit.SECONDS);
+            } catch (NoClassDefFoundError e) {
+                // ignore unknown bug belongs to grpc or netty
+            }
         }
     }
 
     public static void awaitTerminationAfterShutdown(ExecutorService threadPool) {
         threadPool.shutdown();
         try {
-            if (!threadPool.awaitTermination(60, TimeUnit.SECONDS)) {
+            if (!threadPool.awaitTermination(30, TimeUnit.MINUTES)) {
                 threadPool.shutdownNow();
             }
         } catch (InterruptedException ex) {

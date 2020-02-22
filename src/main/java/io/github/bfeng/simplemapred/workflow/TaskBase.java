@@ -33,7 +33,6 @@ public abstract class TaskBase {
         }
     }
 
-
     public static int exec(Class clazz, List<String> jvmArgs, List<String> args) throws IOException, InterruptedException {
         String javaHome = System.getProperty("java.home");
         String javaBin = javaHome + File.separator + "bin" + File.separator + "java";

@@ -64,8 +64,8 @@ public class WordCountApp extends SimpleMapReduce {
 
     @Override
     protected RunMapReduceRequest buildRunMapReduceRequest() {
-        List<String> inputFiles = Arrays.asList("data/words-1.txt", "data/words-2.txt");
-        List<String> outputFiles = Arrays.asList("out-1.txt", "out-2.txt");
+        List<String> inputFiles = Arrays.asList("input/words-1.txt", "input/words-2.txt");
+        List<String> outputFiles = Arrays.asList("output/out-1.txt", "output/out-2.txt");
         return RunMapReduceRequest.newBuilder()
                 .setClusterId(clusterId)
                 .addAllInputFiles(inputFiles)

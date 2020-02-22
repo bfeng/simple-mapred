@@ -1,12 +1,15 @@
 package io.github.bfeng.simplemapred.workflow;
 
+import com.google.protobuf.Any;
 import com.google.protobuf.Message;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 public class Mapper extends TaskBase {
     private static final Logger logger = Logger.getLogger(Mapper.class.getName());
@@ -39,7 +42,7 @@ public class Mapper extends TaskBase {
 
     public int runMapperFn(String inputFile, String mapClass) {
         logger.info(mapClass + " runs input: " + inputFile);
-        ReflectionUtils.runMapFn(logger, mapClass, inputFile, mapperEmitter);
+        ReflectionUtils.runMapFn(mapClass, inputFile, mapperEmitter);
         return 0;
     }
 
@@ -62,6 +65,10 @@ public class Mapper extends TaskBase {
 
         public MapperService(Mapper mapper) {
             this.mapper = mapper;
+        }
+
+        private Iterable<? extends Any> packList(List<Message> input) {
+            return input.stream().map(Any::pack).collect(Collectors.toList());
         }
 
         @Override
@@ -92,6 +99,30 @@ public class Mapper extends TaskBase {
                 responseObserver.onNext(response);
                 responseObserver.onCompleted();
             }
+        }
+
+        @Override
+        public void readCombinedKeyValues(ReadKeyValueRequest request, StreamObserver<CombinedKeyValuePairs> responseObserver) {
+            int reduceId = request.getReduceId();
+            int totalReducer = request.getTotalReducers();
+            logger.info(String.format("Mapper[%d] is sending data to Reducer[%d]", mapper.meta.id, reduceId));
+            int counter = 0;
+            for (Message key : mapper.mapperEmitter.getKeys()) {
+                logger.info(key + "hashcode:" + key.hashCode());
+                if ((Math.abs(key.hashCode()) % totalReducer) == reduceId) {
+                    CombinedKeyValuePairs response = CombinedKeyValuePairs.newBuilder()
+                            .setKey(Any.pack(key))
+                            .addAllValues(packList(mapper.mapperEmitter.getList(key)))
+                            .build();
+                    responseObserver.onNext(response);
+                    counter++;
+                }
+            }
+            logger.info(
+                    String.format("Mapper[%d] is sending data to Reducer[%d] (%d keys sent / total %d)",
+                            mapper.meta.id, reduceId, counter, mapper.mapperEmitter.getKeys().size())
+            );
+            responseObserver.onCompleted();
         }
     }
 }
